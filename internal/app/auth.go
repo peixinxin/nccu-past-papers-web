@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"html/template"
 	"net/http"
+	"past-papers-web/templates"
+	"strings"
 	"time"
 )
 
@@ -24,6 +26,8 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write([]byte("Success, please check your email and wait for approval.")) // Write to response first
+
+	// Send mail to user
 	t, err := template.ParseFiles("templates/mail/register.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -36,17 +40,27 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.mailer.Send(email, "Registration", buf.String())
+
+	// Send mail to administator
+	t, err = template.ParseFiles("templates/mail/regadminnotify.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	buf = new(bytes.Buffer)
+	data = map[string]interface{}{"Name": name, "Email": email, "StudentId": studentId}
+	if err = t.Execute(buf, data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, admin := range strings.Split(a.config.ADMIN_MAIL, ",") {
+		a.mailer.Send(strings.TrimSpace(admin), "New Registration", buf.String())
+	}
+
 	return
 }
 
 func (a *App) Login(w http.ResponseWriter, r *http.Request) {
-	renderTmpl := func() {
-		tmpl := template.Must(template.ParseFiles("templates/base.html", "templates/entry.html"))
-		if err := tmpl.Execute(w, nil); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
 	if r.Method == "POST" {
 		email := r.FormValue("email")
 		http.SetCookie(w, &http.Cookie{ // Set a cookie
@@ -67,9 +81,9 @@ func (a *App) Login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		renderTmpl()
+		templates.Render(w, "entry.html", nil)
 		return
 	}
-	renderTmpl()
+	templates.Render(w, "entry.html", nil)
 	return
 }
