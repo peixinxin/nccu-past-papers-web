@@ -14,9 +14,7 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	name := r.FormValue("name")
 	studentId := r.FormValue("studentId")
-
-	// 設置用戶 Cookie
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ // Set a cookie
 		Name:     "email",
 		Value:    email,
 		MaxAge:   3600,
@@ -24,7 +22,7 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	// 验证必要字段
+	// Validate required fields
 	for _, v := range []string{email, name, studentId} {
 		if v == "" {
 			http.Error(w, "Missing required fields", http.StatusBadRequest)
@@ -32,26 +30,23 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 生成 OTP 并存储到缓存
+	// Generate OTP and store it in cache
 	otp := generateOTP()
 	a.otpCache.Set(email, otp, 5*time.Minute)
 
-	// 发送邮件
+	// Send otp email to user
 	t, err := template.ParseFiles("templates/mail/otp.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	buf := new(bytes.Buffer)
 	data := map[string]interface{}{"Name": name, "OTP": otp}
 	if err = t.Execute(buf, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	a.mailer.Send(email, "OTP Verification", buf.String())
-	w.Write([]byte("Success, please check your email for the OTP."))
 }
 
 func (a *App) Login(w http.ResponseWriter, r *http.Request) {
@@ -92,20 +87,20 @@ func generateOTP() string {
 }
 
 func (a *App) VerifyOTP(w http.ResponseWriter, r *http.Request) {
-	// 解析请求体
+	// Parse request body
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Failed to parse form data", http.StatusBadRequest)
 		return
 	}
 
-	// 获取表单数据
+	// Retrieve form data
 	otpInput := r.FormValue("otp")
 	if otpInput == "" {
 		http.Error(w, "OTP is missing", http.StatusBadRequest)
 		return
 	}
 
-	// 检查 Cookie
+	// Check for cookie
 	cookie, err := r.Cookie("email")
 	if err != nil {
 		http.Error(w, "Email cookie is missing", http.StatusBadRequest)
@@ -113,14 +108,14 @@ func (a *App) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	}
 	email := cookie.Value
 
-	// 验证 OTP
+	// Validate OTP
 	storedOTP, ok := a.otpCache.Get(email)
 	if !ok || storedOTP != otpInput {
 		http.Error(w, "Invalid or expired OTP", http.StatusUnauthorized)
 		return
 	}
 
-	// 验证成功
+	// OTP verification success
 	a.otpCache.Delete(email)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OTP verified successfully"))

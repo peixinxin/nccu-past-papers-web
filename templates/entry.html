@@ -3,7 +3,7 @@
     <h1 class="mb-4 flex justify-center" x-show="login">Login</h1>
     <h1 class="mb-4 flex justify-center" x-show="!login">Register</h1>
 
-    <!-- 登入表單 -->
+    <!-- Login Form -->
     <div class="flex flex-col justify-center items-center" x-show="login">
       <form method="post" action="" class="inline-flex gap-2 justify-center w-80" enctype="multipart/form-data">
         <input type="text" name="email" placeholder="example@example.com" autocomplete="email" />
@@ -17,7 +17,7 @@
       </div>
     </div>
 
-    <!-- 註冊表單 -->
+    <!-- Registration Form -->
     <div class="flex flex-col justify-center items-center" x-show="!login">
       <form class="content-center w-80" id="register-form" enctype="multipart/form-data" x-on:submit.prevent="async () => {
           const form = document.getElementById('register-form');
@@ -32,7 +32,7 @@
             showspinner = false;
 
             if (response.ok) {
-              modalOpen = true; // 打开 OTP 验证弹窗
+              modalOpen = true; // Open OTP verification modal
             } else {
               const error = await response.text();
               console.error('Error during registration:', error);
@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <!-- OTP 驗證彈窗 -->
+    <!-- OTP Verification Modal -->
     <div x-show="modalOpen" x-transition
       class="absolute h-screen w-screen top-0 left-0 bg-gray-500/30 backdrop-blur-sm flex items-center justify-center"
       id="otp-modal">
@@ -76,7 +76,7 @@
               otpError = 'OTP cannot be empty!';
               return;
             }
-            otpError = ''; // 清空错误消息
+            otpError = ''; // Clear error message
 
             try {
               const response = await fetch('/verify-otp', {
@@ -86,10 +86,10 @@
               });
 
               if (response.ok) {
-                modalOpen = false; // 关闭弹窗
-                login = true; // 切换到登录页面
+                modalOpen = false; // Close modal
+                login = true; // Switch to login page
               } else {
-                otpError = await response.text(); // 显示错误消息
+                otpError = await response.text(); // Show error message
               }
             } catch (error) {
               console.error('Network error:', error);
@@ -114,7 +114,7 @@
       </div>
     </div>
 
-    <!-- 輪詢處理中的 Spinner -->
+    <!-- Loading Spinner -->
     <div class="fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center" x-show="showspinner">
       <div class="loader">Loading...</div>
     </div>
