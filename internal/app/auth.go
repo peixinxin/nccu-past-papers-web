@@ -14,13 +14,6 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	name := r.FormValue("name")
 	studentId := r.FormValue("studentId")
-	http.SetCookie(w, &http.Cookie{ // Set a cookie
-		Name:     "email",
-		Value:    email,
-		MaxAge:   3600,
-		Path:     "/",
-		SameSite: http.SameSiteLaxMode,
-	})
 
 	// Validate required fields
 	for _, v := range []string{email, name, studentId} {
@@ -34,7 +27,36 @@ func (a *App) Register(w http.ResponseWriter, r *http.Request) {
 	otp := generateOTP()
 	a.otpCache.Set(email, otp, 5*time.Minute)
 
-	// Send otp email to user
+	// Set cookies
+	cookies := []*http.Cookie{
+		{
+			Name:     "email",
+			Value:    email,
+			MaxAge:   3600,
+			Path:     "/",
+			SameSite: http.SameSiteLaxMode,
+		},
+		{
+			Name:     "name",
+			Value:    name,
+			MaxAge:   3600,
+			Path:     "/",
+			SameSite: http.SameSiteLaxMode,
+		},
+		{
+			Name:     "studentId",
+			Value:    studentId,
+			MaxAge:   3600,
+			Path:     "/",
+			SameSite: http.SameSiteLaxMode,
+		},
+	}
+
+	for _, cookie := range cookies {
+		http.SetCookie(w, cookie)
+	}
+
+	// Send OTP email to user
 	t, err := template.ParseFiles("templates/mail/otp.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -93,30 +115,55 @@ func (a *App) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retrieve form data
+	// Validate OTP
 	otpInput := r.FormValue("otp")
 	if otpInput == "" {
 		http.Error(w, "OTP is missing", http.StatusBadRequest)
 		return
 	}
-
-	// Check for cookie
-	cookie, err := r.Cookie("email")
+	emailCookie, err := r.Cookie("email")
 	if err != nil {
 		http.Error(w, "Email cookie is missing", http.StatusBadRequest)
 		return
 	}
-	email := cookie.Value
-
-	// Validate OTP
+	email := emailCookie.Value
 	storedOTP, ok := a.otpCache.Get(email)
 	if !ok || storedOTP != otpInput {
 		http.Error(w, "Invalid or expired OTP", http.StatusUnauthorized)
 		return
 	}
-
-	// OTP verification success
 	a.otpCache.Delete(email)
+
+	// Register the user
+	nameCookie, err := r.Cookie("name")
+	if err != nil {
+		http.Error(w, "Name cookie is missing", http.StatusBadRequest)
+		return
+	}
+	name := nameCookie.Value
+	studentIdCookie, err := r.Cookie("studentId")
+	if err != nil {
+		http.Error(w, "Student ID cookie is missing", http.StatusBadRequest)
+		return
+	}
+	studentId := studentIdCookie.Value
+	success := a.helper.RegisterUser(email, name, studentId)
+	if !success {
+		http.Error(w, "Failed to register user", http.StatusInternalServerError)
+		return
+	}
+
+	// Registration was successful
+	clearCookies := []string{"name", "studentId"}
+	for _, cookieName := range clearCookies {
+		http.SetCookie(w, &http.Cookie{
+			Name:     cookieName,
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1, // Clear cookie by setting MaxAge to -1
+			SameSite: http.SameSiteLaxMode,
+			HttpOnly: true,
+		})
+	}
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OTP verified successfully"))
 }
