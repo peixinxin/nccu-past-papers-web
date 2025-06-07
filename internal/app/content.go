@@ -135,7 +135,9 @@ func (a *App) GetContent(w http.ResponseWriter, r *http.Request, urlpath string)
 
 	treeNode, err := a.helper.TreeNode.GetChildren(urlpath)
 	if err != nil {
-		fmt.Println("Error getting children", err)
+		log.Println("Error getting children: ", err)
+		templates.Render(w, "404.html", nil)
+		return
 	}
 
 	keys := make([]string, 0, len(treeNode.Children)) // Sort keys
